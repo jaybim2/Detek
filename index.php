@@ -42,6 +42,7 @@ if ($action === 'check_batch') {
                 'hlr_carrier' => '-',
                 'hlr_line_type' => '-',
                 'hlr_otp_status' => 'disabled',
+                'hlr_otp_delay_time' => 0,
                 'hlr_error' => null
             ];
             $batchStats['total']++;
@@ -50,10 +51,7 @@ if ($action === 'check_batch') {
             continue;
         }
         
-        // Jeda delay antar nomor di backend
-        if ($checkedCount > 0 && BULK_CHECK_DELAY > 0) {
-            sleep(BULK_CHECK_DELAY);
-        }
+        // Jeda delay antar nomor di backend dinonaktifkan untuk pemrosesan real-time di frontend
         
         $apiResult = checkWhatsAppNumber($normalized);
         $checkedCount++;
@@ -64,6 +62,7 @@ if ($action === 'check_batch') {
             $hlrCarrier = '-';
             $hlrLineType = '-';
             $hlrOtpStatus = 'disabled';
+            $hlrOtpDelayTime = 0;
             $hlrError = null;
             
             if ($isRegistered) {
@@ -73,6 +72,7 @@ if ($action === 'check_batch') {
                 $hlrCarrier = $hlrResult['carrier'];
                 $hlrLineType = $hlrResult['line_type'];
                 $hlrOtpStatus = $hlrResult['otp_status'];
+                $hlrOtpDelayTime = $hlrResult['otp_delay_time'] ?? 0;
                 $hlrError = $hlrResult['error'];
                 
                 if ($hlrOtpStatus === 'ready') {
@@ -95,6 +95,7 @@ if ($action === 'check_batch') {
                 'hlr_carrier' => $hlrCarrier,
                 'hlr_line_type' => $hlrLineType,
                 'hlr_otp_status' => $hlrOtpStatus,
+                'hlr_otp_delay_time' => $hlrOtpDelayTime,
                 'hlr_error' => $hlrError
             ];
             
@@ -121,6 +122,7 @@ if ($action === 'check_batch') {
                 'hlr_carrier' => '-',
                 'hlr_line_type' => '-',
                 'hlr_otp_status' => 'disabled',
+                'hlr_otp_delay_time' => 0,
                 'hlr_error' => null
             ];
             $batchStats['total']++;
@@ -276,6 +278,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'hlr_carrier' => '-',
                     'hlr_line_type' => '-',
                     'hlr_otp_status' => 'disabled',
+                    'hlr_otp_delay_time' => 0,
                     'hlr_error' => null
                 ];
                 $stats['total']++;
@@ -299,6 +302,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $hlrCarrier = '-';
                 $hlrLineType = '-';
                 $hlrOtpStatus = 'disabled';
+                $hlrOtpDelayTime = 0;
                 $hlrError = null;
                 
                 if ($isRegistered) {
@@ -309,6 +313,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $hlrCarrier = $hlrResult['carrier'];
                     $hlrLineType = $hlrResult['line_type'];
                     $hlrOtpStatus = $hlrResult['otp_status'];
+                    $hlrOtpDelayTime = $hlrResult['otp_delay_time'] ?? 0;
                     $hlrError = $hlrResult['error'];
                     
                     // Hitung statistik OTP
@@ -332,6 +337,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'hlr_carrier' => $hlrCarrier,
                     'hlr_line_type' => $hlrLineType,
                     'hlr_otp_status' => $hlrOtpStatus,
+                    'hlr_otp_delay_time' => $hlrOtpDelayTime,
                     'hlr_error' => $hlrError
                 ];
                 
@@ -358,6 +364,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'hlr_carrier' => '-',
                     'hlr_line_type' => '-',
                     'hlr_otp_status' => 'disabled',
+                    'hlr_otp_delay_time' => 0,
                     'hlr_error' => null
                 ];
                 $stats['total']++;
@@ -993,29 +1000,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>
                         </div>
                         
-                        <!-- Opsi Pemrosesan Batch -->
-                        <div class="file-options-grid">
-                            <div class="option-group">
-                                <label for="startOffset">Mulai dari Baris ke-</label>
-                                <input type="number" id="startOffset" min="1" value="1">
-                            </div>
-                            <div class="option-group">
-                                <label for="maxLimit">Jumlah Nomor Maksimum (Maks 1000)</label>
-                                <input type="number" id="maxLimit" min="1" max="1000" value="1000">
-                            </div>
-                            <div class="option-group">
-                                <label for="batchDelay">Jeda Antar Batch (Istirahat)</label>
-                                <select id="batchDelay">
-                                    <option value="0">Tanpa Jeda</option>
-                                    <option value="10" selected>10 Detik (Disarankan)</option>
-                                    <option value="30">30 Detik</option>
-                                    <option value="60">1 Menit</option>
-                                </select>
-                            </div>
-                            <div class="option-group">
-                                <label>Ukuran Per Batch</label>
-                                <input type="text" value="100 Nomor (Terkunci)" disabled style="background: #e2e8f0; color: #64748b; font-weight: 500;">
-                            </div>
+                    </div>
+
+                    <!-- Opsi Pemrosesan -->
+                    <div class="file-options-grid">
+                        <div class="option-group" id="optStartOffset" style="display: none;">
+                            <label for="startOffset">Mulai dari Baris ke-</label>
+                            <input type="number" id="startOffset" min="1" value="1">
+                        </div>
+                        <div class="option-group" id="optMaxLimit" style="display: none;">
+                            <label for="maxLimit">Jumlah Nomor Maksimum (Maks 1000)</label>
+                            <input type="number" id="maxLimit" min="1" max="1000" value="1000">
+                        </div>
+                        <div class="option-group">
+                            <label for="batchDelay">Jeda Pengiriman Antar Nomor</label>
+                            <select id="batchDelay">
+                                <option value="0">Tanpa Jeda</option>
+                                <option value="2" selected>2 Detik (Bawaan)</option>
+                                <option value="5">5 Detik</option>
+                                <option value="10">10 Detik (Disarankan)</option>
+                                <option value="30">30 Detik</option>
+                            </select>
+                        </div>
+                        <div class="option-group">
+                            <label>Mode Pemrosesan</label>
+                            <input type="text" value="Satu Per Satu (Real-Time)" disabled style="background: #e2e8f0; color: #64748b; font-weight: 500;">
                         </div>
                     </div>
 
@@ -1123,6 +1132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script>
         // Konfigurasi HLR dari PHP
         const useHlrLookup = <?php echo (defined('USE_HLR_LOOKUP') && USE_HLR_LOOKUP) ? 'true' : 'false'; ?>;
+        const bulkCheckDelay = <?php echo BULK_CHECK_DELAY; ?>;
         
         let activeTab = 'manual';
         let fileContent = '';
@@ -1133,6 +1143,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         let isPaused = false;
         let isCancelled = false;
         let cooldownInterval = null;
+        let cooldownTimeLeft = 0;
+        let cooldownType = 'none'; // 'none', 'batch', 'otp_delay'
         
         // Statistik Global
         let stats = {
@@ -1159,12 +1171,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 document.getElementById('tabManualBtn').classList.add('active');
                 document.getElementById('tabManual').classList.add('active');
                 document.getElementById('phones').setAttribute('required', 'required');
+                
+                // Sembunyikan offset & limit untuk manual input
+                document.getElementById('optStartOffset').style.display = 'none';
+                document.getElementById('optMaxLimit').style.display = 'none';
             } else {
                 document.getElementById('tabFileBtn').classList.add('active');
                 document.getElementById('tabFile').classList.add('active');
                 document.getElementById('phones').removeAttribute('required');
+                
+                // Tampilkan offset & limit untuk unggah file
+                document.getElementById('optStartOffset').style.display = 'flex';
+                document.getElementById('optMaxLimit').style.display = 'flex';
             }
         }
+
+        // Jalankan inisialisasi awal saat dokumen selesai dimuat
+        document.addEventListener('DOMContentLoaded', () => {
+            const delaySelect = document.getElementById('batchDelay');
+            if (delaySelect) {
+                let foundOption = false;
+                for (let i = 0; i < delaySelect.options.length; i++) {
+                    if (parseInt(delaySelect.options[i].value, 10) === bulkCheckDelay) {
+                        delaySelect.selectedIndex = i;
+                        foundOption = true;
+                        break;
+                    }
+                }
+                if (!foundOption) {
+                    const newOpt = document.createElement('option');
+                    newOpt.value = bulkCheckDelay;
+                    newOpt.textContent = `${bulkCheckDelay} Detik (Bawaan)`;
+                    newOpt.selected = true;
+                    delaySelect.appendChild(newOpt);
+                }
+            }
+            
+            switchTab('manual');
+        });
 
         function handleFileSelect() {
             const fileInput = document.getElementById('fileInput');
@@ -1248,8 +1292,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 return;
             }
             
-            // Bagi menjadi batch-batch berisi maksimal 100 nomor
-            const batchSize = 100;
+            // Bagi menjadi batch-batch berisi maksimal 1 nomor (real-time)
+            const batchSize = 1;
             queueBatches = [];
             for (let i = 0; i < numbersToProcess.length; i += batchSize) {
                 queueBatches.push(numbersToProcess.slice(i, i + batchSize));
@@ -1259,6 +1303,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             currentBatchIndex = 0;
             isPaused = false;
             isCancelled = false;
+            cooldownType = 'none';
+            cooldownTimeLeft = 0;
+            if (cooldownInterval) {
+                clearInterval(cooldownInterval);
+                cooldownInterval = null;
+            }
             
             // Reset statistik global
             stats = {
@@ -1389,8 +1439,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     currentBatchIndex++;
                     
-                    // Cek jika ada batch berikutnya untuk diproses
-                    if (currentBatchIndex < totalBatches) {
+                    // Hitung jika ada nomor yang mengalami Delay OTP
+                    let maxOtpDelayTime = 0;
+                    data.results.forEach(res => {
+                        if (res.hlr_otp_status === 'delay' && res.hlr_otp_delay_time > maxOtpDelayTime) {
+                            maxOtpDelayTime = res.hlr_otp_delay_time;
+                        }
+                    });
+                    
+                    if (maxOtpDelayTime > 0 && !isCancelled && !isPaused) {
+                        startOtpDelayCooldown(maxOtpDelayTime);
+                    } else if (currentBatchIndex < totalBatches) {
                         const batchDelay = parseInt(document.getElementById('batchDelay').value, 10) || 0;
                         if (batchDelay > 0 && !isCancelled && !isPaused) {
                             startCooldown(batchDelay);
@@ -1413,20 +1472,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         function startCooldown(seconds) {
-            let timeLeft = seconds;
+            cooldownType = 'batch';
+            cooldownTimeLeft = seconds;
+            runCooldownInterval(seconds);
+        }
+
+        function runCooldownInterval(seconds) {
             document.getElementById('progressTitle').textContent = "Jeda Istirahat (Cooldown)...";
-            document.getElementById('progressStatusText').innerHTML = `Menunggu selama <strong>${timeLeft} detik</strong> sebelum memproses batch berikutnya untuk mencegah batas API/Banned...`;
+            document.getElementById('progressStatusText').innerHTML = `Menunggu selama <strong>${cooldownTimeLeft} detik</strong> sebelum memproses batch berikutnya untuk mencegah batas API/Banned...`;
             
             if (cooldownInterval) clearInterval(cooldownInterval);
             
             cooldownInterval = setInterval(() => {
-                timeLeft--;
-                if (timeLeft <= 0) {
+                cooldownTimeLeft--;
+                if (cooldownTimeLeft <= 0) {
                     clearInterval(cooldownInterval);
                     cooldownInterval = null;
+                    cooldownType = 'none';
                     processNextBatch();
                 } else {
-                    document.getElementById('progressStatusText').innerHTML = `Menunggu selama <strong>${timeLeft} detik</strong> sebelum memproses batch berikutnya untuk mencegah batas API/Banned...`;
+                    document.getElementById('progressStatusText').innerHTML = `Menunggu selama <strong>${cooldownTimeLeft} detik</strong> sebelum memproses batch berikutnya untuk mencegah batas API/Banned...`;
+                }
+            }, 1000);
+        }
+
+        function startOtpDelayCooldown(seconds) {
+            cooldownType = 'otp_delay';
+            cooldownTimeLeft = seconds;
+            runOtpDelayCooldownInterval(seconds);
+        }
+
+        function runOtpDelayCooldownInterval(seconds) {
+            document.getElementById('progressTitle').textContent = "Terdeteksi Delay OTP (Jeda 2 Menit)...";
+            document.getElementById('progressStatusText').innerHTML = `Menangguhkan antrean selama <strong>${cooldownTimeLeft} detik</strong> karena terdeteksi nomor dengan status Delay OTP...`;
+            
+            if (cooldownInterval) clearInterval(cooldownInterval);
+            
+            cooldownInterval = setInterval(() => {
+                cooldownTimeLeft--;
+                if (cooldownTimeLeft <= 0) {
+                    clearInterval(cooldownInterval);
+                    cooldownInterval = null;
+                    cooldownType = 'none';
+                    processNextBatch();
+                } else {
+                    document.getElementById('progressStatusText').innerHTML = `Menangguhkan antrean selama <strong>${cooldownTimeLeft} detik</strong> karena terdeteksi nomor dengan status Delay OTP...`;
                 }
             }, 1000);
         }
@@ -1439,15 +1529,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             isPaused = true;
             document.getElementById('btnPause').style.display = 'none';
             document.getElementById('btnResume').style.display = 'inline-flex';
-            document.getElementById('progressTitle').textContent = "Pengecekan Dijeda";
-            document.getElementById('progressStatusText').textContent = "Antrean dihentikan sementara oleh pengguna.";
+            
+            if (cooldownType !== 'none') {
+                document.getElementById('progressTitle').textContent = "Pengecekan Dijeda (Jeda Waktu)";
+                document.getElementById('progressStatusText').innerHTML = `Antrean dijeda. Sisa waktu jeda: <strong>${cooldownTimeLeft} detik</strong>.`;
+            } else {
+                document.getElementById('progressTitle').textContent = "Pengecekan Dijeda";
+                document.getElementById('progressStatusText').textContent = "Antrean dihentikan sementara oleh pengguna.";
+            }
         }
 
         function resumeQueue() {
             isPaused = false;
             document.getElementById('btnPause').style.display = 'inline-flex';
             document.getElementById('btnResume').style.display = 'none';
-            processNextBatch();
+            
+            if (cooldownType === 'batch') {
+                runCooldownInterval(cooldownTimeLeft);
+            } else if (cooldownType === 'otp_delay') {
+                runOtpDelayCooldownInterval(cooldownTimeLeft);
+            } else {
+                processNextBatch();
+            }
         }
 
         function cancelQueue() {
@@ -1455,6 +1558,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 clearInterval(cooldownInterval);
                 cooldownInterval = null;
             }
+            cooldownType = 'none';
+            cooldownTimeLeft = 0;
             
             isCancelled = true;
             
@@ -1471,7 +1576,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 isCancelled = false;
                 if (!isPaused) {
-                    processNextBatch();
+                    if (cooldownType === 'batch') {
+                        runCooldownInterval(cooldownTimeLeft);
+                    } else if (cooldownType === 'otp_delay') {
+                        runOtpDelayCooldownInterval(cooldownTimeLeft);
+                    } else {
+                        processNextBatch();
+                    }
                 }
             }
         }

@@ -88,6 +88,46 @@ function extractCountryCode($phone) {
  * @return array
  */
 function checkHLRStatus($phone, $countryCode = '') {
+    // Jika mode mock aktif, jalankan simulasi HLR lokal
+    if (defined('USE_MOCK_API') && USE_MOCK_API) {
+        // Simulasikan delay network singkat (150ms)
+        usleep(150000); 
+        
+        $cleanNumber = preg_replace('/[^0-9]/', '', $phone);
+        $lastDigit = (int) substr($cleanNumber, -1);
+        
+        $carriers = ['Telkomsel', 'Indosat Ooredoo', 'XL Axiata', 'Smartfren', 'Three'];
+        $carrier = $carriers[$lastDigit % count($carriers)];
+        
+        $lineType = 'mobile';
+        if ($lastDigit === 9) {
+            $lineType = 'landline';
+        } elseif ($lastDigit === 7) {
+            $lineType = 'voip';
+        }
+        
+        $isValid = ($lastDigit !== 5); // Jika digit terakhir 5, simulasikan tidak aktif / hangus (delay)
+        
+        $otpStatus = 'ready';
+        $otpDelayTime = 0;
+        
+        if (!$isValid) {
+            $otpStatus = 'delay';
+            $otpDelayTime = 120; // 2 menit delay
+        } elseif ($lineType !== 'mobile') {
+            $otpStatus = 'limited';
+        }
+        
+        return [
+            'valid' => $isValid,
+            'carrier' => $carrier,
+            'line_type' => $lineType,
+            'otp_status' => $otpStatus,
+            'otp_delay_time' => $otpDelayTime,
+            'error' => null
+        ];
+    }
+
     // Jika HLR dinonaktifkan
     if (!defined('USE_HLR_LOOKUP') || !USE_HLR_LOOKUP) {
         return [
@@ -95,6 +135,7 @@ function checkHLRStatus($phone, $countryCode = '') {
             'carrier' => '-',
             'line_type' => '-',
             'otp_status' => 'disabled',
+            'otp_delay_time' => 0,
             'error' => 'HLR Lookup Dinonaktifkan'
         ];
     }
@@ -106,6 +147,7 @@ function checkHLRStatus($phone, $countryCode = '') {
             'carrier' => '-',
             'line_type' => '-',
             'otp_status' => 'error',
+            'otp_delay_time' => 0,
             'error' => 'API Key HLR Belum Dikonfigurasi'
         ];
     }
@@ -129,6 +171,7 @@ function checkHLRStatus($phone, $countryCode = '') {
                 'carrier' => '-',
                 'line_type' => '-',
                 'otp_status' => 'error',
+                'otp_delay_time' => 0,
                 'error' => 'Koneksi ke Veriphone API terputus atau timeout'
             ];
         }
@@ -143,6 +186,7 @@ function checkHLRStatus($phone, $countryCode = '') {
                 'carrier' => '-',
                 'line_type' => '-',
                 'otp_status' => 'error',
+                'otp_delay_time' => 0,
                 'error' => $errorMsg
             ];
         }
@@ -156,8 +200,10 @@ function checkHLRStatus($phone, $countryCode = '') {
             }
             
             $otpStatus = 'ready'; // default
+            $otpDelayTime = 0;
             if (!$isValid) {
                 $otpStatus = 'delay'; // Kartu tidak aktif / hangus / offline
+                $otpDelayTime = 120;
             } elseif ($lineType !== 'mobile') {
                 $otpStatus = 'limited'; // Bukan tipe mobile (landline/fixed_line/voip)
             }
@@ -167,6 +213,7 @@ function checkHLRStatus($phone, $countryCode = '') {
                 'carrier' => $carrier,
                 'line_type' => $lineType,
                 'otp_status' => $otpStatus,
+                'otp_delay_time' => $otpDelayTime,
                 'error' => null
             ];
         }
@@ -191,6 +238,7 @@ function checkHLRStatus($phone, $countryCode = '') {
                 'carrier' => '-',
                 'line_type' => '-',
                 'otp_status' => 'error',
+                'otp_delay_time' => 0,
                 'error' => 'Koneksi ke Numverify API terputus atau timeout'
             ];
         }
@@ -205,6 +253,7 @@ function checkHLRStatus($phone, $countryCode = '') {
                 'carrier' => '-',
                 'line_type' => '-',
                 'otp_status' => 'error',
+                'otp_delay_time' => 0,
                 'error' => $errorMsg
             ];
         }
@@ -218,8 +267,10 @@ function checkHLRStatus($phone, $countryCode = '') {
             }
             
             $otpStatus = 'ready'; // default
+            $otpDelayTime = 0;
             if (!$isValid) {
                 $otpStatus = 'delay';
+                $otpDelayTime = 120;
             } elseif ($lineType !== 'mobile') {
                 $otpStatus = 'limited';
             }
@@ -229,6 +280,7 @@ function checkHLRStatus($phone, $countryCode = '') {
                 'carrier' => $carrier,
                 'line_type' => $lineType,
                 'otp_status' => $otpStatus,
+                'otp_delay_time' => $otpDelayTime,
                 'error' => null
             ];
         }
@@ -239,6 +291,7 @@ function checkHLRStatus($phone, $countryCode = '') {
         'carrier' => '-',
         'line_type' => '-',
         'otp_status' => 'error',
+        'otp_delay_time' => 0,
         'error' => 'Format respons HLR tidak dikenali'
     ];
 }

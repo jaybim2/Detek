@@ -29,5 +29,6 @@ define('HLR_PROVIDER', getenv('HLR_PROVIDER') ?: 'veriphone');
 define('USE_HLR_LOOKUP', filter_var(getenv('USE_HLR_LOOKUP') ?: 'true', FILTER_VALIDATE_BOOLEAN)); // Setel ke true untuk mengaktifkan kueri HLR
 define('HLR_API_KEY', getenv('HLR_API_KEY') ?: '83FD160DD817450587B1BECCE464C877'); // Masukkan API Access Key Veriphone atau Numverify Anda di sini
 
+
 // Path file log
 define('LOG_FILE_PATH', __DIR__ . '/logs/checker.log');
